@@ -6,7 +6,6 @@ CADDYFILE="/etc/caddy/Caddyfile"
 
 echo "Running Tiger Data migrations..."
 
-cd /root/outray/
 
 psql "$TIGER_DATA_URL" -f deploy/setup_tigerdata.sql
 
