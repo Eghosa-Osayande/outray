@@ -8,6 +8,8 @@ echo "Running Tiger Data migrations..."
 
 cd /root/outray/
 
+psql "$TIGER_DATA_URL" -f deploy/setup_tigerdata.sql
+
 if [ -n "$TIGER_DATA_URL" ]; then
   # Run migration files (not the full setup script which drops tables)
   for migration in deploy/migrations/*.sql; do
