@@ -61,10 +61,12 @@ services:
         condition: service_healthy  
     command: >
       sh -c "
-        chmod +x ./runTigerMigrations.sh &&
+        cp ./runTigerMigrations.sh /tmp/runTigerMigrations.sh &&
+        chmod +x /tmp/runTigerMigrations.sh &&
         echo '🐯 Running migrations...' &&
-        ./runTigerMigrations.sh &&
-        echo '✅ Migrations done, service completed successfully'
+        /tmp/runTigerMigrations.sh &&
+        echo '✅ Migrations done, service completed successfully' &&
+        rm -f /tmp/runTigerMigrations.sh
       "
 
   tunnel:
