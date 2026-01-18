@@ -44,11 +44,9 @@ services:
       retries: 10
   
   migrations:
-    image: postgres:15-alpine
-    working_dir: /root/outray
-    volumes:
-      - ./deploy/:/root/outray/deploy/:ro
-      - ./runTigerMigrations.sh :/root/outray/runTigerMigrations.sh
+    build: 
+      context: .
+      dockerfile: Dockerfile.migration
     environment:
       TIGER_DATA_URL: ${TIGER_DATA_URL}
       DATABASE_URL: ${DATABASE_URL}
@@ -61,12 +59,9 @@ services:
         condition: service_healthy  
     command: >
       sh -c "
-        cp ./runTigerMigrations.sh tmp_runTigerMigrations.sh &&
-        chmod +x ./tmp_runTigerMigrations.sh &&
         echo '🐯 Running migrations...' &&
-        ./tmp_runTigerMigrations.sh &&
-        echo '✅ Migrations done, service completed successfully' &&
-        rm -f ./tmp_runTigerMigrations.sh
+        ./runTigerMigrations.sh &&
+        echo '✅ Migrations done, service completed successfully'
       "
 
   tunnel:

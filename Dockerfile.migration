@@ -1,0 +1,13 @@
+FROM postgres:15-alpine
+
+WORKDIR /
+
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+
+COPY ./deploy ./deploy
+COPY ./runTigerMigrations.sh ./runTigerMigrations.sh
+
+RUN chmod +x ./runTigerMigrations.sh
+
+
+
