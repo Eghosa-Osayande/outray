@@ -1,19 +1,13 @@
 #!/bin/bash
 set -e
 
-# Update package list
-sudo apt update
-
-# Install PostgreSQL client
-sudo apt install -y postgresql-client
-
 # Configuration
 CADDYFILE="/etc/caddy/Caddyfile"
 
-TIGER_DATA_URL="${TIGER_DATA_URL}"
+echo "Running Tiger Data migrations..."
 
-echo "🐯 Running Tiger Data migrations..."
-cd /root/outray
+cd /root/outray/
+
 if [ -n "$TIGER_DATA_URL" ]; then
   # Run migration files (not the full setup script which drops tables)
   for migration in deploy/migrations/*.sql; do

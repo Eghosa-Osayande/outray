@@ -48,6 +48,7 @@ services:
     working_dir: /root/outray
     volumes:
       - ./deploy/:/root/outray/deploy/:ro
+      - ./deploy2.sh:/root/outray/deploy2.sh:ro
     environment:
       TIGER_DATA_URL: ${TIGER_DATA_URL}
       DATABASE_URL: ${DATABASE_URL}
@@ -60,19 +61,9 @@ services:
         condition: service_healthy  
     command: >
       sh -c "
-        echo "🐯 Running Tiger Data migrations..."
-        psql "${TIGER_DATA_URL}" -f deploy/setup_tigerdata.sql
-        if [ -n "${TIGER_DATA_URL}" ]; then
-          for migration in deploy/migrations/*.sql; do
-            if [ -f "$$migration" ]; then
-              echo "  Running $$migration...";
-              psql "${TIGER_DATA_URL}" -f "$$migration" || echo "❌ Failed: $$migration";
-            fi;
-          done;
-          echo "✅ Tiger Data migrations complete.";
-        else
-          echo "⚠️ TIGER_DATA_URL not set, skipping migrations.";
-        fi
+        echo '🐯 Running migrations...' &&
+        ./deploy2.sh &&
+        echo '✅ Migrations done, service completed successfully'
       "
 
   tunnel:
