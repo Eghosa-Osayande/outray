@@ -21,7 +21,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgres/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U app -d appdb"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -38,7 +38,7 @@ services:
     volumes:
       - tiger_data_volume:/var/lib/postgres/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U app -d appdb"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -54,9 +54,7 @@ services:
       tiger-data:
         condition: service_healthy
       postgres:
-        condition: service_healthy
-    entrypoint: ["sh", "-c"]
-    
+        condition: service_healthy  
     command: >
       sh -c "
         echo "🐯 Running Tiger Data migrations..."
