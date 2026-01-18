@@ -4,8 +4,6 @@ services:
   tunnel:
     build: 
       context: .
-      args:
-        DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=${POSTGRES_SSL_MODE}
     command: ["node", "apps/tunnel/dist/server.js"]
     ports:
       - "3547:3547"
@@ -26,9 +24,6 @@ services:
       # Request Settings
       REQUEST_TIMEOUT_MS: 60000
 
-      # TimescaleDB (TigerData)
-      TIGER_DATA_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=${POSTGRES_SSL_MODE}
-
       # TCP/UDP Port Ranges
       TCP_PORT_RANGE_MIN: 20000
       TCP_PORT_RANGE_MAX: 20001
@@ -43,12 +38,11 @@ services:
       - redis
       - tiger-data
       - postgres
+      - migrations
 
   internal-check:
     build: 
       context: .
-      args:
-        DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=${POSTGRES_SSL_MODE}
     command: ["node", "apps/internal-check/dist/index.js"]
     ports:
       - "3001:3001"
@@ -61,24 +55,23 @@ services:
 
     depends_on:
       - tunnel
+      - migrations
 
   cron:
     build: 
       context: .
-      args:
-        DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=${POSTGRES_SSL_MODE}
     command: ["node", "apps/cron/dist/index.js"]
     environment:
       # Redis
       REDIS_URL: redis://${REDIS_HOST}:${REDIS_PORT}
 
       # TimescaleDB (TigerData)
-      TIGER_DATA_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@tiger-data:5432/${POSTGRES_DB}?sslmode=disable
       
     depends_on:
       - redis
       - tiger-data
       - postgres
+      - migrations
       - tunnel
 
   web:
@@ -89,8 +82,7 @@ services:
     command: >
       sh -c "
         echo 'Running Better Auth CLI...'
-        npm run db:generate-auth || true
-        npm run db:migrate || true
+        npx drizzle-kit push || true
         echo 'Starting web server...'
         node .output/server/index.mjs
       "
@@ -119,9 +111,6 @@ services:
 
       # Redis (container name, not localhost)
       REDIS_URL: redis://${REDIS_HOST}:${REDIS_PORT}
-
-      # Tiger Data (TimescaleDB container)
-      TIGER_DATA_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=${POSTGRES_SSL_MODE}
 
       # Polar
       POLAR_ACCESS_TOKEN: ${POLAR_ACCESS_TOKEN}
@@ -172,15 +161,33 @@ services:
       - tiger_data_volume:/var/lib/postgres/data
   
   migrations:
-    build: 
-      context: .
-    depends_on:
-      - tiger-data
+    image: postgres:15-alpine
+    working_dir: /root/outray
     env_file:
       - .env
+    volumes:
+      - ./deploy/:/root/outray/deploy/:ro
+    depends_on:
+      - tiger-data
+    entrypoint: ["sh", "-c"]
+    
     command: >
-      chmod +x deploy2.sh &&
-      deploy2.sh
+      sh -c "
+        echo "🐯 Running Tiger Data migrations..."
+        psql "$TIGER_DATA_URL" -f deploy/setup_tigerdata.sql
+        if [ -n "$TIGER_DATA_URL" ]; then
+          for migration in deploy/migrations/*.sql; do
+            if [ -f "$migration" ]; then
+              echo "  Running $migration...";
+              psql "$TIGER_DATA_URL" -f "$migration" || echo "❌ Failed: $migration";
+            fi;
+          done;
+          echo "✅ Tiger Data migrations complete.";
+        else
+          echo "⚠️ TIGER_DATA_URL not set, skipping migrations.";
+        fi
+      "
+
 
 
 volumes:
