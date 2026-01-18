@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
 
+# Update package list
+sudo apt update
+
+# Install PostgreSQL client
+sudo apt install -y postgresql-client
+
 # Configuration
 CADDYFILE="/etc/caddy/Caddyfile"
 

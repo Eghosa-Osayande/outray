@@ -84,14 +84,13 @@ services:
   web:
     build: 
       context: .
-      args:
-        DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=${POSTGRES_SSL_MODE}
     working_dir: /apps/web
     # command: ["node", "web/.output/server/index.mjs"]
     command: >
       sh -c "
         echo 'Running Better Auth CLI...' &&
-        npm run db:generate-auth && npm run db:migrate &&
+        npm run db:generate-auth && 
+        npm run db:migrate &&
         echo 'Starting web server...' &&
         node .output/server/index.mjs
       "
@@ -173,16 +172,12 @@ services:
       - tiger_data_volume:/var/lib/postgres/data
   
   migrations:
-    image: postgres:15-alpine
+    build: 
+      context: .
     depends_on:
       - tiger-data
-    working_dir: /root/outray
-    volumes:
-      - ./deploy/migrations:/root/outray/deploy/migrations:ro
-      - ./deploy2.sh:/root/outray/deploy2.sh:ro
     env_file:
       - .env
-    entrypoint: ["sh", "-c"]
     command: >
       chmod +x /root/outray/deploy2.sh &&
       /root/outray/deploy2.sh
