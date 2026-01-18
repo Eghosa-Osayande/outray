@@ -1,6 +1,79 @@
 version: "3.9"
 
 services:
+
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgres/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d appdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  
+  tiger-data:
+    image: timescale/timescaledb:latest-pg15
+    container_name: tiger-data
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5433:5432"
+    volumes:
+      - tiger_data_volume:/var/lib/postgres/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d appdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  
+  migrations:
+    image: postgres:15-alpine
+    working_dir: /root/outray
+    volumes:
+      - ./deploy/:/root/outray/deploy/:ro
+    depends_on:
+      redis:
+        condition: service_started
+      tiger-data:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    entrypoint: ["sh", "-c"]
+    
+    command: >
+      sh -c "
+        echo "🐯 Running Tiger Data migrations..."
+        psql "${TIGER_DATA_URL}" -f deploy/setup_tigerdata.sql
+        if [ -n "${TIGER_DATA_URL}" ]; then
+          for migration in deploy/migrations/*.sql; do
+            if [ -f "$$migration" ]; then
+              echo "  Running $$migration...";
+              psql "${TIGER_DATA_URL}" -f "$$migration" || echo "❌ Failed: $$migration";
+            fi;
+          done;
+          echo "✅ Tiger Data migrations complete.";
+        else
+          echo "⚠️ TIGER_DATA_URL not set, skipping migrations.";
+        fi
+      "
+
   tunnel:
     build: 
       context: .
@@ -35,10 +108,14 @@ services:
 
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
     depends_on:
-      - redis
-      - tiger-data
-      - postgres
-      - migrations
+      redis:
+        condition: service_started
+      tiger-data:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
 
   internal-check:
     build: 
@@ -51,8 +128,8 @@ services:
       PORT: 3001
 
     depends_on:
-      - tunnel
-      - migrations
+      tunnel:
+        condition: service_started
 
   cron:
     build: 
@@ -61,15 +138,10 @@ services:
     environment:
       # Redis
       REDIS_URL: redis://${REDIS_HOST}:${REDIS_PORT}
-
-      # TimescaleDB (TigerData)
       
     depends_on:
-      - redis
-      - tiger-data
-      - postgres
-      - migrations
-      - tunnel
+      tunnel:
+        condition: service_started
 
   web:
     build: 
@@ -119,68 +191,9 @@ services:
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
 
     depends_on:
-      - redis
-      - tiger-data
-      - postgres
-      - internal-check
+      tunnel:
+        condition: service_started
       
-
-  redis:
-    image: redis:7-alpine
-    container_name: redis
-    ports:
-      - "6379:6379"
-
-  postgres:
-    image: postgres:15-alpine
-    container_name: postgres
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgres/data
-  
-  tiger-data:
-    image: timescale/timescaledb:latest-pg15
-    container_name: tiger-data
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-    ports:
-      - "5433:5432"
-    volumes:
-      - tiger_data_volume:/var/lib/postgres/data
-  
-  migrations:
-    image: postgres:15-alpine
-    working_dir: /root/outray
-    volumes:
-      - ./deploy/:/root/outray/deploy/:ro
-    depends_on:
-      - tiger-data
-    entrypoint: ["sh", "-c"]
-    
-    command: >
-      sh -c "
-        echo "🐯 Running Tiger Data migrations..."
-        psql "${TIGER_DATA_URL}" -f deploy/setup_tigerdata.sql
-        if [ -n "${TIGER_DATA_URL}" ]; then
-          for migration in deploy/migrations/*.sql; do
-            if [ -f "$$migration" ]; then
-              echo "  Running $$migration...";
-              psql "${TIGER_DATA_URL}" -f "$$migration" || echo "❌ Failed: $$migration";
-            fi;
-          done;
-          echo "✅ Tiger Data migrations complete.";
-        else
-          echo "⚠️ TIGER_DATA_URL not set, skipping migrations.";
-        fi
-      "
-
 
 
 volumes:
