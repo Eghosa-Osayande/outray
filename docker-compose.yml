@@ -48,7 +48,7 @@ services:
     working_dir: /root/outray
     volumes:
       - ./deploy/:/root/outray/deploy/:ro
-      - ./deploy2.sh:/root/outray/runTigerMigrations.sh
+      - ./runTigerMigrations.sh :/root/outray/runTigerMigrations.sh
     environment:
       TIGER_DATA_URL: ${TIGER_DATA_URL}
       DATABASE_URL: ${DATABASE_URL}
