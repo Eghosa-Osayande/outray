@@ -47,9 +47,6 @@ services:
     ports:
       - "3001:3001"
     environment:
-      # Database
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=${POSTGRES_SSL_MODE}
-
       # Server Port
       PORT: 3001
 
@@ -173,9 +170,9 @@ services:
         psql "${TIGER_DATA_URL}" -f deploy/setup_tigerdata.sql
         if [ -n "${TIGER_DATA_URL}" ]; then
           for migration in deploy/migrations/*.sql; do
-            if [ -f "$migration" ]; then
-              echo "  Running $migration...";
-              psql "${TIGER_DATA_URL}" -f "$migration" || echo "❌ Failed: $migration";
+            if [ -f "$$migration" ]; then
+              echo "  Running $$migration...";
+              psql "${TIGER_DATA_URL}" -f "$$migration" || echo "❌ Failed: $$migration";
             fi;
           done;
           echo "✅ Tiger Data migrations complete.";
