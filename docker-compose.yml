@@ -72,8 +72,8 @@ services:
       - "3547:3547"
       - "20000:20000"
       - "20001:20001"
-      - "30000:30000" 
-      - "30001:30001" 
+      - "20002:20002" 
+      - "20003:20003" 
     environment:
       TIGER_DATA_URL: ${TIGER_DATA_URL}
       DATABASE_URL: ${DATABASE_URL}
@@ -91,9 +91,9 @@ services:
 
       # TCP/UDP Port Ranges
       TCP_PORT_RANGE_MIN: 20000
-      TCP_PORT_RANGE_MAX: 20001
-      UDP_PORT_RANGE_MIN: 30000
-      UDP_PORT_RANGE_MAX: 30001
+      TCP_PORT_RANGE_MAX: 20003
+      UDP_PORT_RANGE_MIN: 20000
+      UDP_PORT_RANGE_MAX: 20003
 
       # Web API URL
       WEB_API_URL: http://web:3000/api
