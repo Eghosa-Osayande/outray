@@ -48,7 +48,7 @@ services:
     working_dir: /root/outray
     volumes:
       - ./deploy/:/root/outray/deploy/:ro
-      - ./deploy2.sh:/root/outray/deploy2.sh:ro
+      - ./deploy2.sh:/root/outray/deploy2.sh
     environment:
       TIGER_DATA_URL: ${TIGER_DATA_URL}
       DATABASE_URL: ${DATABASE_URL}
@@ -61,6 +61,7 @@ services:
         condition: service_healthy  
     command: >
       sh -c "
+        chmod +x ./deploy2.sh &&
         echo '🐯 Running migrations...' &&
         ./deploy2.sh &&
         echo '✅ Migrations done, service completed successfully'
