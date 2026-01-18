@@ -88,10 +88,10 @@ services:
     # command: ["node", "web/.output/server/index.mjs"]
     command: >
       sh -c "
-        echo 'Running Better Auth CLI...' &&
-        npm run db:generate-auth && 
-        npm run db:migrate &&
-        echo 'Starting web server...' &&
+        echo 'Running Better Auth CLI...'
+        npm run db:generate-auth || true
+        npm run db:migrate || true
+        echo 'Starting web server...'
         node .output/server/index.mjs
       "
     ports:
@@ -179,8 +179,8 @@ services:
     env_file:
       - .env
     command: >
-      chmod +x /root/outray/deploy2.sh &&
-      /root/outray/deploy2.sh
+      chmod +x deploy2.sh &&
+      deploy2.sh
 
 
 volumes:
