@@ -174,12 +174,12 @@ services:
     command: >
       sh -c "
         echo "🐯 Running Tiger Data migrations..."
-        psql "$TIGER_DATA_URL" -f deploy/setup_tigerdata.sql
-        if [ -n "$TIGER_DATA_URL" ]; then
+        psql "${TIGER_DATA_URL}" -f deploy/setup_tigerdata.sql
+        if [ -n "${TIGER_DATA_URL}" ]; then
           for migration in deploy/migrations/*.sql; do
             if [ -f "$migration" ]; then
               echo "  Running $migration...";
-              psql "$TIGER_DATA_URL" -f "$migration" || echo "❌ Failed: $migration";
+              psql "${TIGER_DATA_URL}" -f "$migration" || echo "❌ Failed: $migration";
             fi;
           done;
           echo "✅ Tiger Data migrations complete.";
