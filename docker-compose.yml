@@ -92,8 +92,6 @@ services:
       # App
       APP_URL: http://localhost:3000
 
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=${POSTGRES_SSL_MODE}
-
       # Better Auth
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL}
@@ -163,8 +161,6 @@ services:
   migrations:
     image: postgres:15-alpine
     working_dir: /root/outray
-    env_file:
-      - .env
     volumes:
       - ./deploy/:/root/outray/deploy/:ro
     depends_on:
