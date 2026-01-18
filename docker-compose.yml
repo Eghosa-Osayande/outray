@@ -1,0 +1,193 @@
+version: "3.9"
+
+services:
+  tunnel:
+    build: 
+      context: .
+      args:
+        DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=${POSTGRES_SSL_MODE}
+    command: ["node", "apps/tunnel/dist/server.js"]
+    ports:
+      - "3547:3547"
+      - "20000:20000"
+      - "20001:20001"
+      - "30000:30000" 
+      - "30001:30001" 
+    environment:
+      # Server Configuration
+      PORT: 3547
+      BASE_DOMAIN: localhost.direct
+
+      # Redis
+      REDIS_URL: redis://${REDIS_HOST}:${REDIS_PORT}
+      REDIS_TUNNEL_TTL_SECONDS: 120
+      REDIS_HEARTBEAT_INTERVAL_MS: 20000
+
+      # Request Settings
+      REQUEST_TIMEOUT_MS: 60000
+
+      # TimescaleDB (TigerData)
+      TIGER_DATA_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=${POSTGRES_SSL_MODE}
+
+      # TCP/UDP Port Ranges
+      TCP_PORT_RANGE_MIN: 20000
+      TCP_PORT_RANGE_MAX: 20001
+      UDP_PORT_RANGE_MIN: 30000
+      UDP_PORT_RANGE_MAX: 30001
+
+      # Web API URL
+      WEB_API_URL: http://web:3000/api
+
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
+    depends_on:
+      - redis
+      - tiger-data
+      - postgres
+
+  internal-check:
+    build: 
+      context: .
+      args:
+        DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=${POSTGRES_SSL_MODE}
+    command: ["node", "apps/internal-check/dist/index.js"]
+    ports:
+      - "3001:3001"
+    environment:
+      # Database
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=${POSTGRES_SSL_MODE}
+
+      # Server Port
+      PORT: 3001
+
+    depends_on:
+      - tunnel
+
+  cron:
+    build: 
+      context: .
+      args:
+        DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=${POSTGRES_SSL_MODE}
+    command: ["node", "apps/cron/dist/index.js"]
+    environment:
+      # Redis
+      REDIS_URL: redis://${REDIS_HOST}:${REDIS_PORT}
+
+      # TimescaleDB (TigerData)
+      TIGER_DATA_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@tiger-data:5432/${POSTGRES_DB}?sslmode=disable
+      
+    depends_on:
+      - redis
+      - tiger-data
+      - postgres
+      - tunnel
+
+  web:
+    build: 
+      context: .
+      args:
+        DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=${POSTGRES_SSL_MODE}
+    working_dir: /apps/web
+    # command: ["node", "web/.output/server/index.mjs"]
+    command: >
+      sh -c "
+        echo 'Running Better Auth CLI...' &&
+        npm run db:generate-auth && npm run db:migrate &&
+        echo 'Starting web server...' &&
+        node .output/server/index.mjs
+      "
+    ports:
+      - "3000:3000"
+    environment:
+      # App
+      APP_URL: http://localhost:3000
+
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=${POSTGRES_SSL_MODE}
+
+      # Better Auth
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL}
+
+      # GitHub OAuth
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+
+      # Google OAuth
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+
+      # Zepto Mail
+      ZEPTO_API_KEY: ${ZEPTO_API_KEY}
+
+      # Redis (container name, not localhost)
+      REDIS_URL: redis://${REDIS_HOST}:${REDIS_PORT}
+
+      # Tiger Data (TimescaleDB container)
+      TIGER_DATA_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=${POSTGRES_SSL_MODE}
+
+      # Polar
+      POLAR_ACCESS_TOKEN: ${POLAR_ACCESS_TOKEN}
+      POLAR_WEBHOOK_SECRET: ${POLAR_WEBHOOK_SECRET}
+      POLAR_SERVER: ${POLAR_SERVER}
+
+      # Polar Products
+      POLAR_PRODUCT_RAY: ${POLAR_PRODUCT_RAY}
+      POLAR_PRODUCT_BEAM: ${POLAR_PRODUCT_BEAM}
+
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
+
+    depends_on:
+      - redis
+      - tiger-data
+      - postgres
+      - internal-check
+      
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgres/data
+  
+  tiger-data:
+    image: timescale/timescaledb:latest-pg15
+    container_name: tiger-data
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5433:5432"
+    volumes:
+      - tiger_data_volume:/var/lib/postgres/data
+  
+  migrations:
+    image: postgres:15-alpine
+    depends_on:
+      - tiger-data
+    working_dir: /root/outray
+    volumes:
+      - ./deploy/migrations:/root/outray/deploy/migrations:ro
+      - ./deploy2.sh:/root/outray/deploy2.sh:ro
+    env_file:
+      - .env
+    entrypoint: ["sh", "-c"]
+    command: >
+      chmod +x /root/outray/deploy2.sh &&
+      /root/outray/deploy2.sh
+
+
+volumes:
+  postgres_data:
+  tiger_data_volume:
